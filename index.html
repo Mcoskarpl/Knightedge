@@ -145,6 +145,33 @@
                     }
                 }
             }
+            
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    if (gridColors[row][col] === 'red') {
+                        const moves = getKnightMoves(row, col);
+                        moves.forEach(([newRow, newCol]) => {
+                            if (gridColors[newRow][newCol] === 'white' ) {
+                                gridColors[newRow][newCol] = 'brown';
+                                const cell = grid.children[newRow * columns + newCol];
+                                cell.classList.remove('white', 'orange');
+                                cell.classList.add('brown');
+                            }
+                        });
+                    } else if ((row === 0 || row === rows - 1) || (col === 0 || col === columns - 1)) {
+                        gridColors[row][col] = 'brown';
+                        const cell = grid.children[row * columns + col];
+                        cell.classList.remove('white', 'orange', 'red');
+                        cell.classList.add('brown');
+                    }
+                }
+            }
+
+            
+            
+            
+            
         }
 
         // Aktualizacja liczników
