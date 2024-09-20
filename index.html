@@ -35,6 +35,10 @@
         .white {
             background-color: white;
         }
+        .purple {
+            background-color: purple;
+        }
+
     </style>
 </head>
 <body>
@@ -120,7 +124,7 @@
         // Sprawdzanie, czy istnieje sąsiedni czerwony kwadrat
         function isNearRed(row, col) {
             const moves = getKnightMoves(row, col);
-            return moves.some(([newRow, newCol]) => gridColors[newRow][newCol] === 'red');
+            return moves.some(([newRow, newCol]) => (gridColors[newRow][newCol] === 'purple'));
         }
 
         // Aktualizacja komórek na podstawie ścieżek konia
@@ -128,10 +132,10 @@
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < columns; col++) {
                     const cell = grid.children[row * columns + col];
-                    if (gridColors[row][col] === 'orange' || gridColors[row][col] === 'brown') {
+                    if (gridColors[row][col] === 'orange' || gridColors[row][col] === 'brown' || gridColors[row][col] === 'white') {
                         if (hasPathToEdge(row, col)) {
                             gridColors[row][col] = 'brown';
-                            cell.classList.remove('orange');
+                            cell.classList.remove('orange','white');
                             cell.classList.add('brown');
                         } else if (!isNearRed(row, col)) {
                             gridColors[row][col] = 'white';
@@ -139,8 +143,31 @@
                             cell.classList.add('white');
                         } else {
                             gridColors[row][col] = 'orange';
-                            cell.classList.remove('brown');
+                            cell.classList.remove('brown', 'white');
                             cell.classList.add('orange');
+                        }
+                    }
+                    if (gridColors[row][col] === 'purple') {
+                        if (hasPathToEdge(row, col)) {
+                            gridColors[row][col] = 'red';
+                            cell.classList.remove('purple');
+                            cell.classList.add('red');
+                        }
+                    }
+                    if (gridColors[row][col] === 'red') {
+                        if (!hasPathToEdge(row, col)) {
+                            gridColors[row][col] = 'purple';
+                            cell.classList.remove('red');
+                            cell.classList.add('purple');
+                            const moves = getKnightMoves(row, col);
+                            moves.forEach(([newRow, newCol]) => {
+                                if (gridColors[newRow][newCol] === "white") {
+                                    gridColors[newRow][newCol] = "orange";
+                                    const targetCell = grid.children[newRow * columns + newCol];
+                                    targetCell.classList.remove('white');
+                                    targetCell.classList.add('orange');
+                                }
+                            });
                         }
                     }
                 }
@@ -152,11 +179,18 @@
                     if (gridColors[row][col] === 'red') {
                         const moves = getKnightMoves(row, col);
                         moves.forEach(([newRow, newCol]) => {
-                            if (gridColors[newRow][newCol] === 'white' ) {
+                            if (gridColors[newRow][newCol] === 'white') {
                                 gridColors[newRow][newCol] = 'brown';
                                 const cell = grid.children[newRow * columns + newCol];
-                                cell.classList.remove('white', 'orange');
+                                cell.classList.remove('white');
                                 cell.classList.add('brown');
+                            }
+                            if (gridColors[newRow][newCol] === 'purple' ) {
+                                gridColors[newRow][newCol] = 'red';
+                                const cell = grid.children[newRow * columns + newCol];
+                                cell.classList.remove('purple');
+                                cell.classList.add('red');
+                                updateKnightCells();
                             }
                         });
                     } else if ((row === 0 || row === rows - 1) || (col === 0 || col === columns - 1)) {
@@ -187,9 +221,9 @@
             const currentColor = gridColors[row][col];
 
             if (currentColor === "white" || currentColor === "orange" || currentColor === "brown") {
-                gridColors[row][col] = "red";
+                gridColors[row][col] = "purple";
                 cell.classList.remove('white', 'orange', 'brown');
-                cell.classList.add('red');
+                cell.classList.add('purple');
 
                 // Aktualizacja sąsiadujących komórek
                 const moves = getKnightMoves(row, col);
@@ -201,13 +235,14 @@
                         targetCell.classList.add('orange');
                     }
                 });
-            } else if (currentColor === "red") {
+            } else if (currentColor === "red" || currentColor === "purple") {
                 gridColors[row][col] = "white";
-                cell.classList.remove('red');
+                cell.classList.remove('red', 'purple');
                 cell.classList.add('white');
                 updateKnightCells();
             }
 
+            updateKnightCells();
             updateKnightCells();
             updateCounts();
         }
