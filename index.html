@@ -10,6 +10,11 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            background-color: gray;
+            background-size: cover;
+            background-position: center;
+            color: white;
+            text-shadow: 4px 4px 4px black; /* Czarna otoczka wokół tekstu */
         }
         #grid {
             display: grid;
@@ -38,7 +43,21 @@
         .purple {
             background-color: purple;
         }
-
+        h1, p, button {
+            color: white;
+            text-shadow: 4px 4px 4px 4px black; /* Czarna otoczka wokół nagłówków, tekstu i przycisków */
+        }
+        button {
+            background-color: #333;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #555;
+        }
     </style>
 </head>
 <body>
@@ -47,7 +66,17 @@
     <div id="grid"></div>
     <button id="resetBtn">Reset Grid</button>
     <p id="redCount">Red 🟥: 0</p>
+    <p id="purpleCount">Purple 🟪: 0</p> <!-- Dodany licznik fioletowych kwadracików -->
     <p id="brownCount">Brown 🟫: 0</p>
+
+    <!-- Nowy przycisk do wyświetlania legendy -->
+    <button id="legendBtn">Show Legend</button>
+    <div id="legend" style="display: none;">
+        <p>🟨 - Can reach to hole (🟪)</p>
+        <p>🟪 - Hole, which can't reach to edge</p>
+        <p>🟥 - Hole, which can reach to edge</p>
+        <p>🟫 - Can reach to hole (🟥)</p>
+    </div>
 
     <script>
         const knightMoves = [
@@ -58,21 +87,19 @@
         const rows = parseInt(prompt("Number of rows:"));
         const columns = parseInt(prompt("Number of columns:"));
 
-        // Wyświetlenie rozmiaru siatki
         document.getElementById('gridSize').textContent = `Grid: ${rows} x ${columns}`;
 
         const grid = document.getElementById('grid');
         let gridColors = [];
         let redCount = 0;
+        let purpleCount = 0; // Zmienna do przechowywania liczby fioletowych kwadratów
         let brownCount = 0;
 
-        // Ustawienie stylu siatki
-        grid.style.gridTemplateRows = `repeat(${rows}, 40px)`;
+        grid.style.gridTemplateRows = `repeat(${rows}, 40px)`; 
         grid.style.gridTemplateColumns = `repeat(${columns}, 40px)`;
 
-        // Tworzenie siatki
         function createGrid() {
-            grid.innerHTML = ''; // Wyczyść poprzednią siatkę, jeśli istnieje
+            grid.innerHTML = '';
             gridColors = [];
             for (let row = 0; row < rows; row++) {
                 const rowColors = [];
@@ -88,7 +115,6 @@
                         rowColors.push('white');
                     }
 
-                    // Obsługa kliknięcia komórki
                     cell.addEventListener('click', () => onCellClick(row, col, cell));
                     grid.appendChild(cell);
                 }
@@ -97,14 +123,12 @@
             updateCounts();
         }
 
-        // Uzyskiwanie ruchów konia z danego pola
         function getKnightMoves(row, col) {
             return knightMoves
                 .map(([r, c]) => [row + r, col + c])
                 .filter(([r, c]) => r >= 0 && r < rows && c >= 0 && c < columns);
         }
 
-        // Sprawdzanie, czy istnieje ścieżka do krawędzi siatki
         function hasPathToEdge(row, col, visited = new Set()) {
             if (row === 0 || row === rows - 1 || col === 0 || col === columns - 1) {
                 return true;
@@ -121,13 +145,11 @@
             return false;
         }
 
-        // Sprawdzanie, czy istnieje sąsiedni czerwony kwadrat
         function isNearRed(row, col) {
             const moves = getKnightMoves(row, col);
             return moves.some(([newRow, newCol]) => (gridColors[newRow][newCol] === 'purple'));
         }
 
-        // Aktualizacja komórek na podstawie ścieżek konia
         function updateKnightCells() {
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < columns; col++) {
@@ -172,8 +194,7 @@
                     }
                 }
             }
-            
-            
+
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < columns; col++) {
                     if (gridColors[row][col] === 'red') {
@@ -185,7 +206,7 @@
                                 cell.classList.remove('white');
                                 cell.classList.add('brown');
                             }
-                            if (gridColors[newRow][newCol] === 'purple' ) {
+                            if (gridColors[newRow][newCol] === 'purple') {
                                 gridColors[newRow][newCol] = 'red';
                                 const cell = grid.children[newRow * columns + newCol];
                                 cell.classList.remove('purple');
@@ -201,22 +222,17 @@
                     }
                 }
             }
-
-            
-            
-            
-            
         }
 
-        // Aktualizacja liczników
         function updateCounts() {
             redCount = gridColors.flat().filter(color => color === "red").length;
+            purpleCount = gridColors.flat().filter(color => color === "purple").length; // Aktualizacja licznika fioletowych kwadratów
             brownCount = gridColors.flat().filter(color => color === "brown").length;
             document.getElementById('redCount').textContent = `Red 🟥: ${redCount}`;
+            document.getElementById('purpleCount').textContent = `Purple 🟪: ${purpleCount}`; // Wyświetlanie liczby fioletowych kwadratów
             document.getElementById('brownCount').textContent = `Brown 🟫: ${brownCount}`;
         }
 
-        // Obsługa kliknięcia komórki
         function onCellClick(row, col, cell) {
             const currentColor = gridColors[row][col];
 
@@ -225,7 +241,6 @@
                 cell.classList.remove('white', 'orange', 'brown');
                 cell.classList.add('purple');
 
-                // Aktualizacja sąsiadujących komórek
                 const moves = getKnightMoves(row, col);
                 moves.forEach(([newRow, newCol]) => {
                     if (gridColors[newRow][newCol] === "white") {
@@ -247,16 +262,26 @@
             updateCounts();
         }
 
-        // Resetowanie całej siatki
         function resetGrid() {
             createGrid();
         }
 
-        // Obsługa przycisków
         document.getElementById('resetBtn').addEventListener('click', resetGrid);
 
         // Inicjalizacja siatki
         createGrid();
+
+        // Obsługa przycisku do wyświetlania legendy
+        document.getElementById('legendBtn').addEventListener('click', () => {
+            const legend = document.getElementById('legend');
+            if (legend.style.display === 'none') {
+                legend.style.display = 'block';
+                document.getElementById('legendBtn').textContent = 'Hide Legend';
+            } else {
+                legend.style.display = 'none';
+                document.getElementById('legendBtn').textContent = 'Show Legend';
+            }
+        });
     </script>
 </body>
 </html>
