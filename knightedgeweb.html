@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knightedge</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #grid {
+            display: grid;
+            grid-gap: 2px;
+            margin: 20px;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            text-align: center;
+            line-height: 40px;
+            border: 1px solid black;
+        }
+        .brown {
+            background-color: brown;
+        }
+        .red {
+            background-color: red;
+        }
+        .orange {
+            background-color: orange;
+        }
+        .white {
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Knightedge</h1>
+    <p id="gridSize"></p>
+    <div id="grid"></div>
+    <button id="resetBtn">Reset Grid</button>
+    <p id="redCount">Red 🟥: 0</p>
+    <p id="brownCount">Brown 🟫: 0</p>
+
+    <script>
+        const knightMoves = [
+            [-2, -1], [-1, -2], [1, -2], [2, -1],
+            [2, 1], [1, 2], [-1, 2], [-2, 1]
+        ];
+
+        const rows = parseInt(prompt("Podaj liczbę wierszy:"));
+        const columns = parseInt(prompt("Podaj liczbę kolumn:"));
+
+        // Wyświetlenie rozmiaru siatki
+        document.getElementById('gridSize').textContent = `Grid: ${rows} x ${columns}`;
+
+        const grid = document.getElementById('grid');
+        let gridColors = [];
+        let redCount = 0;
+        let brownCount = 0;
+
+        // Ustawienie stylu siatki
+        grid.style.gridTemplateRows = `repeat(${rows}, 40px)`;
+        grid.style.gridTemplateColumns = `repeat(${columns}, 40px)`;
+
+        // Tworzenie siatki
+        function createGrid() {
+            grid.innerHTML = ''; // Wyczyść poprzednią siatkę, jeśli istnieje
+            gridColors = [];
+            for (let row = 0; row < rows; row++) {
+                const rowColors = [];
+                for (let col = 0; col < columns; col++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+
+                    if (row === 0 || row === rows - 1 || col === 0 || col === columns - 1) {
+                        cell.classList.add('brown');
+                        rowColors.push('brown');
+                    } else {
+                        cell.classList.add('white');
+                        rowColors.push('white');
+                    }
+
+                    // Obsługa kliknięcia komórki
+                    cell.addEventListener('click', () => onCellClick(row, col, cell));
+                    grid.appendChild(cell);
+                }
+                gridColors.push(rowColors);
+            }
+            updateCounts();
+        }
+
+        // Uzyskiwanie ruchów konia z danego pola
+        function getKnightMoves(row, col) {
+            return knightMoves
+                .map(([r, c]) => [row + r, col + c])
+                .filter(([r, c]) => r >= 0 && r < rows && c >= 0 && c < columns);
+        }
+
+        // Sprawdzanie, czy istnieje ścieżka do krawędzi siatki
+        function hasPathToEdge(row, col, visited = new Set()) {
+            if (row === 0 || row === rows - 1 || col === 0 || col === columns - 1) {
+                return true;
+            }
+            visited.add(`${row}-${col}`);
+            const moves = getKnightMoves(row, col);
+            for (const [newRow, newCol] of moves) {
+                if (!visited.has(`${newRow}-${newCol}`) && gridColors[newRow][newCol] === 'red') {
+                    if (hasPathToEdge(newRow, newCol, visited)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Sprawdzanie, czy istnieje sąsiedni czerwony kwadrat
+        function isNearRed(row, col) {
+            const moves = getKnightMoves(row, col);
+            return moves.some(([newRow, newCol]) => gridColors[newRow][newCol] === 'red');
+        }
+
+        // Aktualizacja komórek na podstawie ścieżek konia
+        function updateKnightCells() {
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    const cell = grid.children[row * columns + col];
+                    if (gridColors[row][col] === 'orange' || gridColors[row][col] === 'brown') {
+                        if (hasPathToEdge(row, col)) {
+                            gridColors[row][col] = 'brown';
+                            cell.classList.remove('orange');
+                            cell.classList.add('brown');
+                        } else if (!isNearRed(row, col)) {
+                            gridColors[row][col] = 'white';
+                            cell.classList.remove('orange');
+                            cell.classList.add('white');
+                        } else {
+                            gridColors[row][col] = 'orange';
+                            cell.classList.remove('brown');
+                            cell.classList.add('orange');
+                        }
+                    }
+                }
+            }
+        }
+
+        // Aktualizacja liczników
+        function updateCounts() {
+            redCount = gridColors.flat().filter(color => color === "red").length;
+            brownCount = gridColors.flat().filter(color => color === "brown").length;
+            document.getElementById('redCount').textContent = `Red 🟥: ${redCount}`;
+            document.getElementById('brownCount').textContent = `Brown 🟫: ${brownCount}`;
+        }
+
+        // Obsługa kliknięcia komórki
+        function onCellClick(row, col, cell) {
+            const currentColor = gridColors[row][col];
+
+            if (currentColor === "white" || currentColor === "orange" || currentColor === "brown") {
+                gridColors[row][col] = "red";
+                cell.classList.remove('white', 'orange', 'brown');
+                cell.classList.add('red');
+
+                // Aktualizacja sąsiadujących komórek
+                const moves = getKnightMoves(row, col);
+                moves.forEach(([newRow, newCol]) => {
+                    if (gridColors[newRow][newCol] === "white") {
+                        gridColors[newRow][newCol] = "orange";
+                        const targetCell = grid.children[newRow * columns + newCol];
+                        targetCell.classList.remove('white');
+                        targetCell.classList.add('orange');
+                    }
+                });
+            } else if (currentColor === "red") {
+                gridColors[row][col] = "white";
+                cell.classList.remove('red');
+                cell.classList.add('white');
+                updateKnightCells();
+            }
+
+            updateKnightCells();
+            updateCounts();
+        }
+
+        // Resetowanie całej siatki
+        function resetGrid() {
+            createGrid();
+        }
+
+        // Obsługa przycisków
+        document.getElementById('resetBtn').addEventListener('click', resetGrid);
+
+        // Inicjalizacja siatki
+        createGrid();
+    </script>
+</body>
+</html>
