@@ -73,6 +73,7 @@
     <p id="gridSize"></p>
     <div id="grid"></div>
     <button id="resetBtn">Reset Grid</button>
+    <p id="holeCount">Holes 🟥🟪: 0</p>
     <p id="redCount">Red 🟥: 0</p>
     <p id="purpleCount">Purple 🟪: 0</p> <!-- Dodany licznik fioletowych kwadracików -->
     <p id="brownCount">Brown 🟫: 0</p>
@@ -101,6 +102,7 @@
         let gridColors = [];
         let redCount = 0;
         let purpleCount = 0; // Zmienna do przechowywania liczby fioletowych kwadratów
+        let holeCount = 0;  
         let brownCount = 0;
 
         grid.style.gridTemplateRows = `repeat(${rows}, 40px)`; 
@@ -236,6 +238,8 @@
             redCount = gridColors.flat().filter(color => color === "red").length;
             purpleCount = gridColors.flat().filter(color => color === "purple").length; // Aktualizacja licznika fioletowych kwadratów
             brownCount = gridColors.flat().filter(color => color === "brown").length;
+            holeCount = redCount + purpleCount;
+            document.getElementById('holeCount').textContent = `Holes 🟥🟪: ${holeCount}`;  
             document.getElementById('redCount').textContent = `Red 🟥: ${redCount}`;
             document.getElementById('purpleCount').textContent = `Purple 🟪: ${purpleCount}`; // Wyświetlanie liczby fioletowych kwadratów
             document.getElementById('brownCount').textContent = `Brown 🟫: ${brownCount}`;
@@ -269,11 +273,44 @@
             updateKnightCells();
             updateCounts();
         }
+        
 
+        function copyGridToClipboard() {
+            const emojiMap = {
+                'red': '🟥',
+                'purple': '🟪',
+                'brown': '🟫',
+                'orange': '🟧',
+                'blue': '🟦',
+                'white': '⬜'
+            };
+  
+            let gridEmojiString = '';
+            gridEmojiString += rows + 'x' + columns + " Grid, with " + holeCount + " holes.\n"
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    gridEmojiString += emojiMap[gridColors[row][col]] || '⬜';
+                }
+                gridEmojiString += '\n';
+            }
+
+            navigator.clipboard.writeText(gridEmojiString).then(() => {
+                alert("Grid copied to clipboard!");
+            }).catch(err => {
+                alert("Failed to copy the grid: " + err);
+            });
+        }
+
+        const copyButton = document.createElement('button');
+        copyButton.textContent = "Copy Grid to Clipboard";
+        copyButton.id = 'copyGridBtn';
+        document.body.appendChild(copyButton);
+        document.getElementById('copyGridBtn').addEventListener('click', copyGridToClipboard);
+      
         function resetGrid() {
             createGrid();
         }
-
+        
         document.getElementById('resetBtn').addEventListener('click', resetGrid);
 
         // Inicjalizacja siatki
