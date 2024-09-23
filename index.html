@@ -6,65 +6,137 @@
     <title>Knightedge</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: gray;
-            background-size: cover;
-            background-position: center;
+            background-color: #2C3E50;
             color: white;
-            text-shadow: 
-        -3px -3px 5px black,
-        3px -3px 5px black,   
-        -3px 3px 5px black,  
-        3px 3px 5px black;    
+            margin: 0;
+            padding: 20px;
         }
+
+        h1, p, button {
+            text-shadow: 0px 4px 6px rgba(0, 0, 0, 0.7);
+        }
+
+        h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+
+        p {
+            font-size: 1.2em;
+        }
+
         #grid {
             display: grid;
             grid-gap: 2px;
             margin: 20px;
+            background-color: #34495E;
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
         }
+
         .cell {
             width: 40px;
             height: 40px;
             text-align: center;
             line-height: 40px;
-            border: 1px solid black;
+            font-size: 1.2em;
+            border-radius: 5px;
+            transition: all 0.2s ease-in-out;
         }
+
+        .cell:hover {
+            transform: scale(1.1);
+            cursor: pointer;
+        }
+
         .brown {
-            background-color: brown;
+            background-color: #96570a;
         }
+
         .red {
-            background-color: red;
+            background-color: #E74C3C;
         }
+
         .orange {
-            background-color: orange;
+            background-color: #E67E22;
         }
+
         .white {
-            background-color: white;
+            background-color: #ECF0F1;
         }
+
         .purple {
-            background-color: purple;
+            background-color: #8025ad;
         }
-        h1, p, button {
-            color: white;
-            text-shadow: 
-        -3px -3px 5px black,
-        3px -3px 5px black,   
-        -3px 3px 5px black,  
-        3px 3px 5px black;    
-        }
+
         button {
-            background-color: #333;
+            background-color: #1ABC9C;
             border: none;
             padding: 10px 20px;
+            color: white;
+            font-size: 1.2em;
+            border-radius: 5px;
             cursor: pointer;
             margin: 10px;
-            font-size: 16px;
+            transition: background-color 0.3s ease-in-out, transform 0.2s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
+
         button:hover {
-            background-color: #555;
+            background-color: #16A085;
+            transform: scale(1.05);
+        }
+
+        #legend {
+            background-color: rgba(236, 240, 241, 0.9);
+            color: #2C3E50;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        #legend p {
+            font-size: 1.1em;
+            margin: 5px 0;
+        }
+
+        #copyGridBtn {
+            margin-top: 20px;
+        }
+
+        #resetBtn, #copyGridBtn {
+            background-color: #3498DB;
+        }
+
+        #resetBtn:hover, #copyGridBtn:hover {
+            background-color: #2980B9;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            p {
+                font-size: 1em;
+            }
+
+            button {
+                font-size: 1em;
+                padding: 8px 16px;
+            }
+
+            .cell {
+                width: 30px;
+                height: 30px;
+                line-height: 30px;
+            }
         }
     </style>
 </head>
@@ -75,10 +147,9 @@
     <button id="resetBtn">Reset Grid</button>
     <p id="holeCount">Holes 🟥🟪: 0</p>
     <p id="redCount">Red 🟥: 0</p>
-    <p id="purpleCount">Purple 🟪: 0</p> <!-- Dodany licznik fioletowych kwadracików -->
+    <p id="purpleCount">Purple 🟪: 0</p>
     <p id="brownCount">Brown 🟫: 0</p>
 
-    <!-- Nowy przycisk do wyświetlania legendy -->
     <button id="legendBtn">Show Legend</button>
     <div id="legend" style="display: none;">
         <p>🟨 - Can reach to hole (🟪)</p>
@@ -86,6 +157,7 @@
         <p>🟥 - Hole, which can reach to edge</p>
         <p>🟫 - Can reach to hole (🟥)</p>
     </div>
+
 
     <script>
         const knightMoves = [
