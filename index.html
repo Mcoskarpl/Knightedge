@@ -41,6 +41,7 @@
         }
 
         .cell {
+            position: relative;
             width: 40px;
             height: 40px;
             text-align: center;
@@ -50,36 +51,44 @@
             transition: all 0.2s ease-in-out;
         }
 
+        .cell span {
+            position: absolute;
+            top: 0;
+            right: 5px;
+            font-size: 0.8em;
+            color: black;
+        }
+
         .cell:hover {
             transform: scale(1.1);
             cursor: pointer;
         }
 
-        .brown {
+        .blank {
+            background-color: #ECF0F1;
+        }
+      
+        .unconnected {
+            background-color: #E67E22;
+        }
+      
+        .connected {
             background-color: #96570a;
         }
 
-        .red {
-            background-color: #E74C3C;
-        }
-
-        .orange {
-            background-color: #E67E22;
-        }
-
-        .white {
-            background-color: #ECF0F1;
-        }
-
-        .purple {
+        .unconnectedHole {
             background-color: #8025ad;
         }
+      
+        .connectedHole {
+            background-color: #E74C3C;
+      }
 
         button {
             background-color: #1ABC9C;
             border: none;
             padding: 10px 20px;
-            color: white;
+            color: blank;
             font-size: 1.2em;
             border-radius: 5px;
             cursor: pointer;
@@ -147,20 +156,18 @@
     <div id="grid"></div>
     <button id="resetBtn">Reset Grid</button>
     <p id="holeCount">Holes 🟥🟪: 0</p>
-    <p id="redCount">Red 🟥: 0</p>
-    <p id="purpleCount">Purple 🟪: 0</p>
-    <p id="brownCount">Brown 🟫: 0</p>
 
     <button id="legendBtn">Show Legend</button>
     <div id="legend" style="display: none;">
-        <p>🟨 - Can reach to hole (🟪)</p>
-        <p>🟪 - Hole, which can't reach to edge</p>
-        <p>🟥 - Hole, which can reach to edge</p>
-        <p>🟫 - Can reach to hole (🟥)</p>
+        <p id="connectedHoleCount">🟥: 0 - Hole, which can reach to edge</p>
+        <p id="unconnectedHoleCount">🟪: 0 - Hole, which can't reach to edge</p>
+        <p id="connectedCount">🟫: 0 - Can escape</p>
+        <p id="unconnectedCount">🟧: 0 - Can reach to an unconnected hole (🟪)</p>
+        <p id="blankCount">⬜: 0 - can't escape</p>
     </div>
 
-
     <script>
+        // VERSION 10.5.9
         const knightMoves = [
             [-2, -1], [-1, -2], [1, -2], [2, -1],
             [2, 1], [1, 2], [-1, 2], [-2, 1]
@@ -172,36 +179,50 @@
         document.getElementById('gridSize').textContent = `Grid: ${rows} x ${columns}`;
 
         const grid = document.getElementById('grid');
-        let gridColors = [];
-        let redCount = 0;
-        let purpleCount = 0; // Zmienna do przechowywania liczby fioletowych kwadratów
-        let holeCount = 0;  
-        let brownCount = 0;
+        let gridState = [];
+        let gridNumbers = [];
+        let blankCount = 0;
+        let connectedCount = 0;
+        let unconnectedCount = 0;
+        let connectedHoleCount = 0;
+        let unconnectedHoleCount = 0;
+        let holeCount = 0;
+        let holePercent = 0;
 
         grid.style.gridTemplateRows = `repeat(${rows}, 40px)`; 
         grid.style.gridTemplateColumns = `repeat(${columns}, 40px)`;
 
         function createGrid() {
             grid.innerHTML = '';
-            gridColors = [];
+            gridState = [];
+            gridNumbers = [];
+
             for (let row = 0; row < rows; row++) {
                 const rowColors = [];
+                const rowNumbers = [];
+                
                 for (let col = 0; col < columns; col++) {
                     const cell = document.createElement('div');
+                    const numberOverlay = document.createElement('span');
+                    numberOverlay.textContent = "0";
+
                     cell.classList.add('cell');
+                    cell.appendChild(numberOverlay);
 
                     if (row === 0 || row === rows - 1 || col === 0 || col === columns - 1) {
-                        cell.classList.add('brown');
-                        rowColors.push('brown');
+                        cell.classList.add('connected');
+                        rowColors.push('connected');
                     } else {
-                        cell.classList.add('white');
-                        rowColors.push('white');
+                        cell.classList.add('blank');
+                        rowColors.push('blank');
                     }
 
-                    cell.addEventListener('click', () => onCellClick(row, col, cell));
+                    rowNumbers.push(0);
+                    cell.addEventListener('click', () => onCellClick(row, col, cell, numberOverlay));
                     grid.appendChild(cell);
                 }
-                gridColors.push(rowColors);
+                gridState.push(rowColors);
+                gridNumbers.push(rowNumbers);
             }
             updateCounts();
         }
@@ -212,184 +233,169 @@
                 .filter(([r, c]) => r >= 0 && r < rows && c >= 0 && c < columns);
         }
 
-        function hasPathToEdge(row, col, visited = new Set()) {
-            if (row === 0 || row === rows - 1 || col === 0 || col === columns - 1) {
-                return true;
+        function setCell(row, col, state) {
+            if (row >= rows || col >= columns) {
+                return;
             }
-            visited.add(`${row}-${col}`);
+            gridState[row][col] = state;
+            const cell = grid.children[row * columns + col];
+            cell.classList.remove('blank','unconnected','connected','unconnectedHole','connectedHole');
+            cell.classList.add(state);
+        }
+
+        function isNearEdge(row, col) {
+            return row === 0 ||
+                   row === rows - 1 || 
+                   col === 0 ||
+                   col === columns - 1;
+        }
+      
+        function isNearConnectedHole(row, col) {
             const moves = getKnightMoves(row, col);
-            for (const [newRow, newCol] of moves) {
-                if (!visited.has(`${newRow}-${newCol}`) && gridColors[newRow][newCol] === 'red') {
-                    if (hasPathToEdge(newRow, newCol, visited)) {
-                        return true;
+            return moves.some(([newRow, newCol]) => (gridState[newRow][newCol] === 'connectedHole'));
+        }
+      
+        function isNearUnconnectedHole(row, col) {
+            const moves = getKnightMoves(row, col);
+            return moves.some(([newRow, newCol]) => (gridState[newRow][newCol] === 'unconnectedHole'));
+        }
+      
+        function resetConnectedHoles() {
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    if (gridState[row][col] === 'connectedHole') {
+                        setCell(row, col, 'unconnectedHole');
                     }
                 }
             }
-            return false;
         }
-
-        function isNearRed(row, col) {
-            const moves = getKnightMoves(row, col);
-            return moves.some(([newRow, newCol]) => (gridColors[newRow][newCol] === 'purple'));
+      
+        function updateKnightCellsLocal(row, col) {
+            const currentState = gridState[row][col];
+            if (currentState === 'blank' || currentState === 'unconnected' || currentState === 'connected') {
+                if (isNearEdge(row, col)) {
+                    if (currentState != 'connected') {
+                        setCell(row, col, 'connected');
+                    }
+                    return;
+                }
+                if (isNearConnectedHole(row, col)) {
+                    if (currentState != 'connected') {
+                        setCell(row, col, 'connected');
+                    }
+                    return;
+                }
+                if (isNearUnconnectedHole(row, col)) {
+                    if (currentState != 'unconnected') {
+                        setCell(row, col, 'unconnected');
+                    }
+                    return;
+                }
+                if (currentState != 'blank') {
+                    setCell(row, col, 'blank');
+                }
+                return;
+            }
+            if (currentState === 'unconnectedHole' || currentState === 'connectedHole') {
+                if (isNearEdge(row, col)) {
+                    if (currentState != 'connectedHole') {
+                        setCell(row, col, 'connectedHole');
+                        const knightMoves = getKnightMoves(row, col);
+                        knightMoves.forEach(([newRow, newCol]) => {
+                            updateKnightCellsLocal(newRow, newCol);
+                        });
+                    }
+                    return;
+                }
+                if (isNearConnectedHole(row, col)) {
+                    if (currentState != 'connectedHole') {
+                        setCell(row, col, 'connectedHole');
+                        const knightMoves = getKnightMoves(row, col);
+                        knightMoves.forEach(([newRow, newCol]) => {
+                            updateKnightCellsLocal(newRow, newCol);
+                        });
+                    }
+                    return;
+                }
+                if (currentState != 'unconnectedHole') {
+                    setCell(row, col, 'unconnectedHole');
+                }
+                return;
+            }
         }
-
+          
         function updateKnightCells() {
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < columns; col++) {
-                    const cell = grid.children[row * columns + col];
-                    if (gridColors[row][col] === 'orange' || gridColors[row][col] === 'brown' || gridColors[row][col] === 'white') {
-                        if (hasPathToEdge(row, col)) {
-                            gridColors[row][col] = 'brown';
-                            cell.classList.remove('orange','white');
-                            cell.classList.add('brown');
-                        } else if (!isNearRed(row, col)) {
-                            gridColors[row][col] = 'white';
-                            cell.classList.remove('orange');
-                            cell.classList.add('white');
-                        } else {
-                            gridColors[row][col] = 'orange';
-                            cell.classList.remove('brown', 'white');
-                            cell.classList.add('orange');
-                        }
-                    }
-                    if (gridColors[row][col] === 'purple') {
-                        if (hasPathToEdge(row, col)) {
-                            gridColors[row][col] = 'red';
-                            cell.classList.remove('purple');
-                            cell.classList.add('red');
-                        }
-                    }
-                    if (gridColors[row][col] === 'red') {
-                        if (!hasPathToEdge(row, col)) {
-                            gridColors[row][col] = 'purple';
-                            cell.classList.remove('red');
-                            cell.classList.add('purple');
-                            const moves = getKnightMoves(row, col);
-                            moves.forEach(([newRow, newCol]) => {
-                                if (gridColors[newRow][newCol] === "white") {
-                                    gridColors[newRow][newCol] = "orange";
-                                    const targetCell = grid.children[newRow * columns + newCol];
-                                    targetCell.classList.remove('white');
-                                    targetCell.classList.add('orange');
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-
-            for (let row = 0; row < rows; row++) {
-                for (let col = 0; col < columns; col++) {
-                    if (gridColors[row][col] === 'red') {
-                        const moves = getKnightMoves(row, col);
-                        moves.forEach(([newRow, newCol]) => {
-                            if (gridColors[newRow][newCol] === 'white') {
-                                gridColors[newRow][newCol] = 'brown';
-                                const cell = grid.children[newRow * columns + newCol];
-                                cell.classList.remove('white');
-                                cell.classList.add('brown');
-                            }
-                            if (gridColors[newRow][newCol] === 'purple') {
-                                gridColors[newRow][newCol] = 'red';
-                                const cell = grid.children[newRow * columns + newCol];
-                                cell.classList.remove('purple');
-                                cell.classList.add('red');
-                                updateKnightCells();
-                            }
-                        });
-                    } else if ((row === 0 || row === rows - 1) || (col === 0 || col === columns - 1)) {
-                        gridColors[row][col] = 'brown';
-                        const cell = grid.children[row * columns + col];
-                        cell.classList.remove('white', 'orange', 'red');
-                        cell.classList.add('brown');
-                    }
+                    updateKnightCellsLocal(row, col);
                 }
             }
         }
 
         function updateCounts() {
-            redCount = gridColors.flat().filter(color => color === "red").length;
-            purpleCount = gridColors.flat().filter(color => color === "purple").length; // Aktualizacja licznika fioletowych kwadratów
-            brownCount = gridColors.flat().filter(color => color === "brown").length;
-            holeCount = redCount + purpleCount;
-            document.getElementById('holeCount').textContent = `Holes 🟥🟪: ${holeCount}`;  
-            document.getElementById('redCount').textContent = `Red 🟥: ${redCount}`;
-            document.getElementById('purpleCount').textContent = `Purple 🟪: ${purpleCount}`; // Wyświetlanie liczby fioletowych kwadratów
-            document.getElementById('brownCount').textContent = `Brown 🟫: ${brownCount}`;
+            blankCount = gridState.flat().filter(color => color === "blank").length;
+            connectedCount = gridState.flat().filter(color => color === "connected").length;
+            unconnectedCount = gridState.flat().filter(color => color === "unconnected").length;
+            connectedHoleCount = gridState.flat().filter(color => color === "connectedHole").length;
+            unconnectedHoleCount = gridState.flat().filter(color => color === "unconnectedHole").length;
+            holeCount = connectedHoleCount + unconnectedHoleCount;
+            holePercent = Math.round(((holeCount + blankCount) / (rows * columns)) * 10000)/100;
+            document.getElementById('holeCount').textContent = `Holes 🟥🟪: ${holeCount} and ${holePercent}%`;
+            document.getElementById('connectedHoleCount').textContent = `🟥: ${connectedHoleCount} - Hole, which can reach to edge`;
+            document.getElementById('unconnectedHoleCount').textContent = `🟪: ${unconnectedHoleCount} - Hole, which can't reach to edge`;
+            document.getElementById('connectedCount').textContent = `🟫: ${connectedCount} - Can escape`;
+            document.getElementById('unconnectedCount').textContent = `🟧: ${unconnectedCount} - Can reach to an unconnected hole (🟪)`;
+            document.getElementById('blankCount').textContent = `⬜: ${blankCount} - Cannot escape`;
         }
 
-        function onCellClick(row, col, cell) {
-            const currentColor = gridColors[row][col];
-
-            if (currentColor === "white" || currentColor === "orange" || currentColor === "brown") {
-                gridColors[row][col] = "purple";
-                cell.classList.remove('white', 'orange', 'brown');
-                cell.classList.add('purple');
-
-                const moves = getKnightMoves(row, col);
-                moves.forEach(([newRow, newCol]) => {
-                    if (gridColors[newRow][newCol] === "white") {
-                        gridColors[newRow][newCol] = "orange";
-                        const targetCell = grid.children[newRow * columns + newCol];
-                        targetCell.classList.remove('white');
-                        targetCell.classList.add('orange');
-                    }
-                });
-            } else if (currentColor === "red" || currentColor === "purple") {
-                gridColors[row][col] = "white";
-                cell.classList.remove('red', 'purple');
-                cell.classList.add('white');
-                updateKnightCells();
+        function updateNumbers() {
+            const isToggleOn = document.getElementById('toggleSwitch').checked;
+            if (!isToggleOn) {
+                return; 
             }
-
-            updateKnightCells();
-            updateKnightCells();
-            updateCounts();
-        }
-        
-
-        function copyGridToClipboard() {
-            const emojiMap = {
-                'red': '🟥',
-                'purple': '🟪',
-                'brown': '🟫',
-                'orange': '🟧',
-                'blue': '🟦',
-                'white': '⬜'
-            };
-  
-            let gridEmojiString = '';
-            gridEmojiString += rows + 'x' + columns + " Grid, with " + holeCount + " holes.\n"
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < columns; col++) {
-                    gridEmojiString += emojiMap[gridColors[row][col]] || '⬜';
+                    const cell = grid.children[row * columns + col];
+                    const numberOverlay = cell.querySelector('span');
+                    let prevBlankCount = blankCount;
+                    let prevUnconnectedHoleCount = unconnectedHoleCount;
+    
+                    changeState(row, col);
+
+                    let blankDiff = blankCount - prevBlankCount;
+                    let unconnectedHoleDiff = unconnectedHoleCount - prevUnconnectedHoleCount;
+                    gridNumbers[row][col] = (blankDiff + unconnectedHoleDiff) * -1;
+  
+                    numberOverlay.textContent = `${gridNumbers[row][col]} `;
+                   
+                    changeState(row, col);
                 }
-                gridEmojiString += '\n';
             }
-
-            navigator.clipboard.writeText(gridEmojiString).then(() => {
-                alert("Grid copied to clipboard!");
-            }).catch(err => {
-                alert("Failed to copy the grid: " + err);
-            });
-        }
-
-        const copyButton = document.createElement('button');
-        copyButton.textContent = "Copy Grid to Clipboard";
-        copyButton.id = 'copyGridBtn';
-        document.body.appendChild(copyButton);
-        document.getElementById('copyGridBtn').addEventListener('click', copyGridToClipboard);
-      
-        function resetGrid() {
-            createGrid();
         }
         
-        document.getElementById('resetBtn').addEventListener('click', resetGrid);
+        function changeState (row, col) {
+            const currentState = gridState[row][col];
+            if (currentState === 'blank' || currentState === 'unconnected' || currentState === 'connected') {
+                setCell(row, col, 'unconnectedHole');
+            } else if (currentState === 'connectedHole' || currentState === 'unconnectedHole') {
+                setCell(row, col, 'blank');
+                if (currentState === 'connectedHole') {
+                    resetConnectedHoles();
+                }
+            }
+            updateKnightCells();
+            updateCounts();
+            
+        }
+        
+        
+      
+        function onCellClick(row, col, cell) {
+            changeState(row, col);
+            updateNumbers();
+        }
 
-        // Inicjalizacja siatki
-        createGrid();
-
-        // Obsługa przycisku do wyświetlania legendy
+      
         document.getElementById('legendBtn').addEventListener('click', () => {
             const legend = document.getElementById('legend');
             if (legend.style.display === 'none') {
@@ -400,6 +406,184 @@
                 document.getElementById('legendBtn').textContent = 'Show Legend';
             }
         });
+      
+        const copyButton = document.createElement('button');
+        copyButton.textContent = "Copy Grid to Clipboard";
+        copyButton.id = 'copyGridBtn';
+        document.body.appendChild(copyButton);
+        document.getElementById('copyGridBtn').addEventListener('click', copyGridToClipboard);
+
+        function copyGridToClipboard() {
+            const emojiMap = {
+                'connectedHole': '🟥',
+                'unconnectedHole': '🟪',
+                'connected': '🟫',
+                'unconnected': '🟧',
+                'blank': '⬜'
+            };
+  
+            let gridEmojiString = '';
+            gridEmojiString += rows + 'x' + columns + " Grid, with " + holeCount + " holes, and " + holePercent + "% holes.\n"
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    gridEmojiString += emojiMap[gridState[row][col]] || '⬜';
+                }
+                gridEmojiString += '\n';
+            }
+
+            navigator.clipboard.writeText(gridEmojiString).then(() => {
+                alert("Grid copied to clipboard!");
+            }).catch(err => {
+                alert("Failed to copy the grid: " + err);
+            });
+        }
+      
+        const inputField = document.createElement('textarea');
+        inputField.id = 'gridImportField';
+        inputField.placeholder = 'Paste your grid emojis here...';
+        inputField.rows = 10;
+        inputField.cols = 100;
+        document.body.appendChild(inputField);
+        
+        const importButton = document.createElement('button');
+        importButton.textContent = "Import Grid";
+        importButton.id = 'importBtn';
+        document.body.appendChild(importButton);
+        document.getElementById('importBtn').addEventListener('click', importGridFromInput);
+
+
+        function importGridFromInput() {
+            
+            const inputText = document.getElementById('gridImportField').value;
+            const chars = Array.from(inputText);
+            let row = 0;
+            let col = 0;
+            let hasParsedEmoji = false;
+
+            for (let i = 0; i < chars.length; i++) {
+                const char = chars[i];
+                if (char === '\n' && hasParsedEmoji) {
+                    row++;
+                    col = 0;
+                    hasParsedEmoji = false;
+                    continue;
+                }
+                switch (char) {                        
+                    case '🟥':
+                    case '🟪':
+                        setCell(row, col, 'unconnectedHole');
+                        hasParsedEmoji = true;
+                        col++;
+                        break;
+                    case '🟫':
+                    case '🟧':
+                    case '⬜':
+                        setCell(row, col, 'blank');
+                        hasParsedEmoji = true;
+                        col++;
+                        break;
+                    default:
+                        continue;
+                }
+            }
+            updateKnightCells();
+            updateCounts();
+        }
+
+        const toggleSwitch = document.createElement('input');
+        toggleSwitch.type = 'checkbox';
+        toggleSwitch.id = 'toggleSwitch';
+        toggleSwitch.checked = false;
+      
+        const toggleLabel = document.createElement('label');
+        toggleLabel.textContent = 'Enable Number Overlay';
+        toggleLabel.setAttribute('for', 'toggleSwitch');
+
+        document.body.appendChild(toggleSwitch);
+        document.body.appendChild(toggleLabel);
+
+        const solveButton = document.createElement('button');
+        solveButton.textContent = "Automatically solve the grid";
+        solveButton.id = 'solveBtn';
+        document.body.appendChild(solveButton);
+
+        solveButton.disabled = true;
+
+        document.getElementById('solveBtn').addEventListener('click', findSolution);
+
+        function toggleNumberOverlay(enable) {
+            updateNumbers();
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    const cell = grid.children[row * columns + col];
+                    const numberOverlay = cell.querySelector('span');
+                    if (enable) {
+                        numberOverlay.style.display = 'inline';
+                    } else {
+                        numberOverlay.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        toggleSwitch.addEventListener('change', (event) => {
+            const enabled = event.target.checked;
+            toggleNumberOverlay(enabled);
+            solveButton.disabled = !enabled;
+        });
+      
+        function findSolution() {
+            while (blankCount > 0 || unconnectedCount > 0) {
+                clickHighestNumberPosition();
+            }
+        }
+        
+        function clickHighestNumberPosition() {
+            let maxNumber = -Infinity;
+            let maxRow = -1;
+            let maxCol = -1;
+            let minDistance = Infinity;
+
+            let centerRow = Math.floor(rows / 2);
+            let centerCol = Math.floor(columns / 2);
+  
+            function manhattanDistance(row, col) {
+                return Math.abs(row - centerRow) + Math.abs(col - centerCol);
+            }
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    let currentNumber = gridNumbers[row][col];
+                    let distance = manhattanDistance(row, col);
+
+                    if (currentNumber > maxNumber || (currentNumber === maxNumber && distance < minDistance)) {
+                        maxNumber = currentNumber;
+                        maxRow = row;
+                        maxCol = col;
+                        minDistance = distance;
+                    }
+                }
+            }
+
+            if (maxRow !== -1 && maxCol !== -1) {
+                changeState(maxRow, maxCol);
+                updateNumbers();
+            } else {
+                console.log('Grid is empty or contains only negative numbers.');
+            }
+        }
+      
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            resetGrid();
+        });
+      
+        function resetGrid() {
+            createGrid();
+            const isToggleOn = document.getElementById('toggleSwitch').checked;
+            toggleNumberOverlay(isToggleOn);
+        }
+        createGrid();
+        toggleNumberOverlay(false);
     </script>
 </body>
 </html>
