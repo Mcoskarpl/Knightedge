@@ -69,19 +69,19 @@
         }
       
         .unconnected {
-            background-color: #E67E22;
+            background-color: #28cc00;
         }
       
         .connected {
-            background-color: #96570a;
+            background-color: #45b6fe;
         }
 
         .unconnectedHole {
-            background-color: #8025ad;
+            background-color: Orange;
         }
       
         .connectedHole {
-            background-color: #E74C3C;
+            background-color: Red;
       }
 
         button {
@@ -155,22 +155,25 @@
     <p id="gridSize"></p>
     <div id="grid"></div>
     <button id="resetBtn">Reset Grid</button>
-    <p id="holeCount">Holes 🟥🟪: 0</p>
+    <p id="holeCount">Holes 🟥🟧: 0</p>
 
     <button id="legendBtn">Show Legend</button>
     <div id="legend" style="display: none;">
         <p id="connectedHoleCount">🟥: 0 - Hole, which can reach to edge</p>
-        <p id="unconnectedHoleCount">🟪: 0 - Hole, which can't reach to edge</p>
-        <p id="connectedCount">🟫: 0 - Can escape</p>
-        <p id="unconnectedCount">🟧: 0 - Can reach to an unconnected hole (🟪)</p>
+        <p id="unconnectedHoleCount">🟧: 0 - Hole, which can't reach to edge</p>
+        <p id="connectedCount">🟦: 0 - Can escape</p>
+        <p id="unconnectedCount">🟩: 0 - Can reach to an unconnected hole (🟧)</p>
         <p id="blankCount">⬜: 0 - can't escape</p>
     </div>
 
     <script>
-        // VERSION 10.5.9
+          ///////////////////////////////////////////////////
+         //                 VERSION 10.20.0               //
+        ///////////////////////////////////////////////////
         const knightMoves = [
             [-2, -1], [-1, -2], [1, -2], [2, -1],
             [2, 1], [1, 2], [-1, 2], [-2, 1]
+
         ];
 
         const rows = parseInt(prompt("Number of rows:"));
@@ -340,11 +343,11 @@
             unconnectedHoleCount = gridState.flat().filter(color => color === "unconnectedHole").length;
             holeCount = connectedHoleCount + unconnectedHoleCount;
             holePercent = Math.round(((holeCount + blankCount) / (rows * columns)) * 10000)/100;
-            document.getElementById('holeCount').textContent = `Holes 🟥🟪: ${holeCount} and ${holePercent}%`;
+            document.getElementById('holeCount').textContent = `Holes 🟥🟧: ${holeCount} and ${holePercent}%`;
             document.getElementById('connectedHoleCount').textContent = `🟥: ${connectedHoleCount} - Hole, which can reach to edge`;
-            document.getElementById('unconnectedHoleCount').textContent = `🟪: ${unconnectedHoleCount} - Hole, which can't reach to edge`;
-            document.getElementById('connectedCount').textContent = `🟫: ${connectedCount} - Can escape`;
-            document.getElementById('unconnectedCount').textContent = `🟧: ${unconnectedCount} - Can reach to an unconnected hole (🟪)`;
+            document.getElementById('unconnectedHoleCount').textContent = `🟧: ${unconnectedHoleCount} - Hole, which can't reach to edge`;
+            document.getElementById('connectedCount').textContent = `🟦: ${connectedCount} - Can escape`;
+            document.getElementById('unconnectedCount').textContent = `🟩: ${unconnectedCount} - Can reach to an unconnected hole (🟧)`;
             document.getElementById('blankCount').textContent = `⬜: ${blankCount} - Cannot escape`;
         }
 
@@ -416,9 +419,9 @@
         function copyGridToClipboard() {
             const emojiMap = {
                 'connectedHole': '🟥',
-                'unconnectedHole': '🟪',
-                'connected': '🟫',
-                'unconnected': '🟧',
+                'unconnectedHole': '🟧',
+                'connected': '🟦',
+                'unconnected': '🟩',
                 'blank': '⬜'
             };
   
@@ -470,13 +473,13 @@
                 }
                 switch (char) {                        
                     case '🟥':
-                    case '🟪':
+                    case '🟧':
                         setCell(row, col, 'unconnectedHole');
                         hasParsedEmoji = true;
                         col++;
                         break;
-                    case '🟫':
-                    case '🟧':
+                    case '🟦':
+                    case '🟩':
                     case '⬜':
                         setCell(row, col, 'blank');
                         hasParsedEmoji = true;
@@ -488,6 +491,7 @@
             }
             updateKnightCells();
             updateCounts();
+            updateNumbers();
         }
 
         const toggleSwitch = document.createElement('input');
@@ -506,11 +510,16 @@
         solveButton.textContent = "Automatically solve the grid";
         solveButton.id = 'solveBtn';
         document.body.appendChild(solveButton);
-
         solveButton.disabled = true;
-
         document.getElementById('solveBtn').addEventListener('click', findSolution);
 
+        const optimiseButton = document.createElement('button');
+        optimiseButton.textContent = "Automatically optimises the grid";
+        optimiseButton.id = 'optimiseBtn';
+        document.body.appendChild(optimiseButton);
+        optimiseButton.disabled = true;
+        document.getElementById('optimiseBtn').addEventListener('click', optimiseSolution);
+      
         function toggleNumberOverlay(enable) {
             updateNumbers();
             for (let row = 0; row < rows; row++) {
@@ -530,12 +539,23 @@
             const enabled = event.target.checked;
             toggleNumberOverlay(enabled);
             solveButton.disabled = !enabled;
+            optimiseButton.disabled = !enabled;
         });
       
         function findSolution() {
             while (blankCount > 0 || unconnectedCount > 0) {
                 clickHighestNumberPosition();
             }
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    if (gridState[row][col] === 'connectedHole') {
+                        if (gridNumbers[row][col] === 0) {
+                            changeState(row, col);
+                        }
+                    }
+                }
+            }
+            updateNumbers();
         }
         
         function clickHighestNumberPosition() {
@@ -553,14 +573,16 @@
 
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < columns; col++) {
-                    let currentNumber = gridNumbers[row][col];
-                    let distance = manhattanDistance(row, col);
+                    if (gridState[row][col] === 'connected') {
+                        let currentNumber = gridNumbers[row][col];
+                        let distance = manhattanDistance(row, col);
 
-                    if (currentNumber > maxNumber || (currentNumber === maxNumber && distance < minDistance)) {
-                        maxNumber = currentNumber;
-                        maxRow = row;
-                        maxCol = col;
-                        minDistance = distance;
+                        if (currentNumber > maxNumber || (currentNumber === maxNumber && distance < minDistance)) {
+                            maxNumber = currentNumber;
+                            maxRow = row;
+                            maxCol = col;
+                            minDistance = distance;
+                        }
                     }
                 }
             }
@@ -572,6 +594,65 @@
                 console.log('Grid is empty or contains only negative numbers.');
             }
         }
+      
+        function optimiseSolution() {
+            let highestNegative = findHighestNegative();
+                          console.log(highestNegative);
+
+            while (highestNegative === findHighestNegative()) {
+                if (clickMostUselessHole(highestNegative) === 0) {
+                    updateNumbers();
+                    return;
+                }
+            }
+            updateNumbers();
+        }
+      
+        function findHighestNegative() {
+            let highestNegative = -Infinity;
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    if (gridState[row][col] === 'connectedHole' || gridState[row][col] === 'unconnectedHole') {
+                        let currentNumber = gridNumbers[row][col];
+                        if (currentNumber <= 0 && currentNumber > highestNegative) {
+                            highestNegative = currentNumber;
+                        }
+                    }
+                }
+            }
+            return highestNegative;
+        }
+      
+        function clickMostUselessHole(highestNegative) {
+            let maxRow = -1;
+            let maxCol = -1;
+            let maxDistance = -1;
+            let centerRow = Math.floor(rows / 2);
+            let centerCol = Math.floor(columns / 2);
+            function manhattanDistance(row, col) {
+                return Math.abs(row - centerRow) + Math.abs(col - centerCol);
+            }
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    if ((gridState[row][col] === 'connectedHole' || gridState[row][col] === 'unconnectedHole') && gridNumbers[row][col] === highestNegative) {
+                        let distance = manhattanDistance(row, col);
+                        if (distance > maxDistance) {
+                            maxRow = row;
+                            maxCol = col;
+                            maxDistance = distance;
+                        }
+                    }
+                }
+            }
+            if (maxRow !== -1 && maxCol !== -1) {
+                changeState(maxRow, maxCol);
+                //updateNumbers();
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+
       
         document.getElementById('resetBtn').addEventListener('click', () => {
             resetGrid();
